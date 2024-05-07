@@ -1,0 +1,53 @@
+version: '3'
+services:
+  ids: 
+    image: quay.io/keycloak/keycloak:23.0.6
+    container_name: identity-server
+    ports:
+      - "8081:8080"
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_PROXY=edge
+    restart: always
+    volumes:
+      - ./keycloak:/opt/jboss/keycloak/standalone/data
+    entrypoint: ["/opt/keycloak/bin/kc.sh", "start-dev"]
+  etcd:
+    image: bitnami/etcd:3.4.9
+    user: root
+    restart: always
+    volumes:
+      - ../example/etcd_data:/etcd_data
+    environment:
+      ETCD_DATA_DIR: /etcd_data
+      ETCD_ENABLE_V2: "true"
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    ports:
+      - "2379:2379/tcp"
+    platform: linux/amd64
+  apisix:
+    image: "apache/apisix:latest"
+    restart: always
+    volumes:
+      - ./apisix_conf/master/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    depends_on:
+      - etcd
+    ports:
+      - "9180:9180/tcp"
+      - "9080:9080/tcp"
+      - "9091:9091/tcp"
+      - "9443:9443/tcp"
+  apisix-dashboard:
+    image: "apache/apisix-dashboard:latest"
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./apisix_conf/dashboard/config.yaml:/usr/local/apisix-dashboard/conf/config.yaml:ro
+      - ./apisix_conf/dashboard/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
+    depends_on:
+      - apisix
+  
